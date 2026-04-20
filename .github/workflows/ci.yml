@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Backend lint
+        working-directory: backend
+        run: npx eslint . --max-warnings 0
+      - name: Frontend lint
+        working-directory: frontend
+        run: npx eslint . --max-warnings 0
+      - name: Prettier check
+        run: npx prettier --check "**/*.{ts,tsx,json}"
+
+  typecheck:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Backend typecheck
+        working-directory: backend
+        run: npx tsc --noEmit
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+  test:
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run backend tests with coverage
+        working-directory: backend
+        run: npx vitest run --coverage
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+      - name: Start backend
+        working-directory: backend
+        run: |
+          export NODE_ENV=test
+          export PORT=3001
+          export JWT_SECRET=$(printf 'x%.0s' {1..64})
+          export ALLOWED_ORIGINS=http://localhost:5173
+          export LOG_LEVEL=info
+          export KEY_VAULT_TTL_HOURS=24
+          node dist/server.js &
+      - name: Wait for health check
+        run: curl --retry 5 --retry-delay 2 --retry-connrefused http://localhost:3001/api/v1/health
+      - name: Run integration tests
+        working-directory: backend
+        run: npx vitest run tests/integration/
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Docker compose up
+        run: docker compose up -d --build
+      - name: Wait for frontend
+        run: curl --retry 10 --retry-delay 3 --retry-connrefused http://localhost
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright tests
+        working-directory: frontend
+        run: npx playwright test
+      - name: Docker compose down
+        if: always()
+        run: docker compose down -v
+
+  security:
+    runs-on: ubuntu-latest
+    needs: e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: npm audit backend
+        working-directory: backend
+        run: npm audit --audit-level=high
+      - name: npm audit frontend
+        working-directory: frontend
+        run: npm audit --audit-level=high
+      - name: Snyk scan backend
+        working-directory: backend
+        run: npx snyk test --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Snyk scan frontend
+        working-directory: frontend
+        run: npx snyk test --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: security
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -f Dockerfile.backend -t cryptovault-backend:ci .
+      - name: Build frontend image
+        run: docker build -f Dockerfile.frontend -t cryptovault-frontend:ci .
