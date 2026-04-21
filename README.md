@@ -66,6 +66,31 @@ npx playwright test             # E2E tests
 
 See SECURITY.md for full rationale, threat model scope, and deprecated algorithm policy.
 
+## System verification
+
+Current verified checks for this workspace:
+
+- Backend audit: 0 vulnerabilities.
+- Frontend audit: 0 vulnerabilities.
+- Backend typecheck: passes.
+- Frontend typecheck: passes.
+- Backend tests: 74/74 passing.
+- Frontend E2E: 2/2 passing.
+
+Re-run these after future changes:
+
+```bash
+cd backend
+npx vitest run --coverage
+npx tsc --noEmit
+npm audit --audit-level=low
+
+cd frontend
+npx playwright test
+npx tsc --noEmit
+npm audit --audit-level=low
+```
+
 ## Project structure
 
 ```text
