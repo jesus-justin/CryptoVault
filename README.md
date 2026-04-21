@@ -76,6 +76,7 @@ Current verified checks for this workspace:
 - Frontend typecheck: passes.
 - Backend tests: 74/74 passing.
 - Frontend E2E: 2/2 passing.
+- GitHub attribution: commits should use the GitHub-linked no-reply email for contribution tracking.
 
 Re-run these after future changes:
 
