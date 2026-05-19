@@ -55,7 +55,7 @@ jobs:
         working-directory: backend
         run: npx vitest run --coverage
       - name: Upload backend coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: backend-coverage
@@ -116,7 +116,7 @@ jobs:
         working-directory: frontend
         run: npx playwright test
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
