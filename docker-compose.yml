@@ -3,15 +3,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+    init: true
     environment:
       - NODE_ENV=production
       - PORT=3001
       - JWT_SECRET=${JWT_SECRET}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - LOG_LEVEL=${LOG_LEVEL}
+      - TRUST_PROXY=true
+      - REQUEST_TIMEOUT_MS=${REQUEST_TIMEOUT_MS:-10000}
+      - SHUTDOWN_GRACE_MS=${SHUTDOWN_GRACE_MS:-10000}
       - KEY_VAULT_TTL_HOURS=${KEY_VAULT_TTL_HOURS}
     expose:
       - "3001"
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/v1/health"]
@@ -33,6 +41,7 @@ services:
 
   nginx:
     image: nginx:alpine
+    init: true
     ports:
       - "80:80"
       - "443:443"
@@ -40,6 +49,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       - frontend
       - backend

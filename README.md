@@ -144,3 +144,7 @@ CryptoVault/
 ## CI/CD badges
 
 - [CI workflow status](https://github.com/jesus-justin/CryptoVault/actions/workflows/ci.yml)
+
+## Enterprise Readiness
+
+- See `ENTERPRISE_READINESS_PLAN.md` for implemented hardening controls and the next enterprise milestones.
